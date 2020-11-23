@@ -202,12 +202,12 @@ class Game(object):
             return float(100)
 
         #terminal cases
-        if len(moves)==0:
+        if len(moves)<=1:
             return float(-100)
 
         #return self.eval_fn.score_moves(self,maximizing_player)
-        #return self.eval_fn.score_challenge(self,maximizing_player)
-        return self.eval_fn.score_proximity(self,maximizing_player)
+        return self.eval_fn.score_challenge(self,maximizing_player)
+        #return self.eval_fn.score_proximity(self,maximizing_player)
 
     def apply_move(self,move,maximizing_player):
             if self.tiles[move[0]][move[1]] != 0: 
@@ -455,14 +455,11 @@ class CatEvalFn():
     the number of valid moves for the cat."""
     def score_moves(self, game, maximizing_player_turn=True):
         cat_moves=game.valid_moves()
-        return len(cat_moves) if maximizing_player_turn else len(cat_moves)-1
+        return len(cat_moves)*2 if maximizing_player_turn else len(cat_moves)-1
 
     """Your own Evaluation function."""
     def score_challenge(self, game, maximizing_player_turn=True):
-        
-        # Write your code here
-
-        return 1 if maximizing_player_turn else -1
+        return self.score_proximity(game)/2 + self.score_moves(game) if maximizing_player_turn else -1
 
 
     """Evaluation function that outputs a
