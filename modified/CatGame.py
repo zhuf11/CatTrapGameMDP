@@ -50,43 +50,15 @@ class Game(object):
             if block != [i,j]:
                 self.game.tiles[block[0]][block[1]] = 1
 
-    # Intelligent Agents
-    #
-    # All of these Cats take as inputs: 
-    #                      i) The state of the game, and 
-    #                     ii) The Cat coordinates.
-    #
-    # They return either of the following: 
-    #                      i) The new Cat coordinates, if possible.
-    #                     ii) The same original Cat coordinates, indicating Cat failure. 
-    #                    iii) Player's victory.
-    # 
-    # Usage: The following arguments work as flags to indicate the Cat you'd like to use:
-    #           randcat: Random Cat
-    #                ab: Use Alpha-Beta Pruning
-    #               DLS: Use Depth-Limited Search, with the maximum depth in the max_depth argument
-    #                ID: Use Iterative Deepening, with the allotted time in the alotted_time argument
-    #
-    #        If none of these flags is true, simple minimax is used. 
 
-    def CustomCat(self,randcat,ab,DLS,max_depth,ID,alotted_time):
-        self.reached_maxdepth = False 
+    def CustomCat(self, randcat, MDP, max_depth, num_states):
         self.start_time = time.time()
-        self.deadline = self.start_time + alotted_time 
-                         #                ^^^^^^^^^^^^ 
-                         # Here's the timeout in seconds for forever-taking Cats.
-                         # This timeout results in a losing cat.
-                         # This value is also used for Iterative Deepening
-                         # as a deadline for the cat to respond.
         if randcat:
-            result = self.RandomCat()    
-        elif DLS:
-            result = self.DepthLimitedCat(max_depth=max_depth, ab=ab)
-        elif ID:
-            self.deadline = self.start_time + alotted_time
-            result = self.MDPCat()
+            result = self.RandomCat()
+        elif MDP:
+            result = self.MDPCat(max_depth, num_states)
         else:
-            result = self.AlphaBetaCat() if ab else self.MinimaxCat()
+            raise ValueError('No type selected.')
             
         elapsed_time = (time.time() - self.start_time) * 1000
         print ("Elapsed time: %.3fms " % elapsed_time)
@@ -109,32 +81,10 @@ class Game(object):
         return self.target(self.cat_i,self.cat_j,dir)
 
 
-    # Minimax Cat
-    # This Cat uses the Minimax Algorithm
+    # MDP Cat
 
-    def MinimaxCat(self):
-        move, placeholder = self.minimax()    
-        return move 
-
-    # Alpha-Beta Cat
-    # This Cat uses the Alpha-Beta Algorithm
-
-    def AlphaBetaCat(self):
-        move, placeholder = self.alphabeta()    
-        return move 
-
-    # Depth-Limited Cat
-    # This Cat uses the Minimax or Alpha-Beta Algorithm with Limited Depth
-
-    def DepthLimitedCat(self,max_depth,ab):
-        move, placeholder = self.alphabeta(max_depth=max_depth) if ab else self.minimax(max_depth=max_depth)   
-        return move 
-
-    # Iterative-Deepening Cat
-    # This Cat uses the ID Algorithm
-
-    def MDPCat(self):
-        move, placeholder = self.mdp()
+    def MDPCat(self, max_depth, num_states):
+        move = self.mdp(max_depth, num_states)
         return move 
 
 #====================================================================================================        
@@ -194,101 +144,34 @@ class Game(object):
             out=[i+1,j-1] if (i%2)==0 else [i+1,j]
         return out
 
+    def utility(self):
+        """
+        Takes game state and computes pseudo-reward of that state.
+        """
+        # Absorbing states
+        moves = self.valid_moves()
+        if self.cat_i == 0 or self.cat_i == self.size-1 or self.cat_j == 0 or self.cat_j == self.size-1:
+            return float(1000)
 
-    def utility(self, moves, maximizing_player=True):
+        if len(moves) == 0:
+            return float(-2500)
 
-        #terminal cases
-        if self.cat_i==0 or self.cat_i==self.size-1 or self.cat_j==0 or self.cat_j==self.size-1:
-            return float(100)
-
-        #terminal cases
-        if len(moves)<=1:
-            return float(-100)
-
-        #return self.eval_fn.score_moves(self,maximizing_player)
-        return self.eval_fn.score_challenge(self,maximizing_player)
-        #return self.eval_fn.score_proximity(self,maximizing_player)
+        return self.eval_fn.score_challenge(self)
 
     def apply_move(self,move,maximizing_player):
-            if self.tiles[move[0]][move[1]] != 0: 
-              raise InvalidMove("Invalid Move!")
+        if self.tiles[move[0]][move[1]] != 0:
+            print(self.tiles)
+            print(move)
+            raise InvalidMove("Invalid Move!")
 
-            if maximizing_player:
-                self.tiles[move[0]][move[1]] = 1
-                print('SHOULD NOT ENTER HERE')
-            else:
-                self.tiles[move[0]][move[1]] = 6        # place cat 
-                self.tiles[self.cat_i][self.cat_j] = 0  # remove old cat
-                self.cat_i = move[0]
-                self.cat_j = move[1]
+        if maximizing_player:
+            self.tiles[move[0]][move[1]] = 1
+        else:
+            self.tiles[move[0]][move[1]] = 6        # place cat
+            self.tiles[self.cat_i][self.cat_j] = 0  # remove old cat
+            self.cat_i = move[0]
+            self.cat_j = move[1]
 
-                    
-    def max_Value(self, upper_game, move, maximizing_player, depth, maxdepth):
-        if self.time_left()<5:
-            self.terminated=True
-            return [-1,-1],0
-        game=copy.deepcopy(upper_game)
-        if(move!=[-1,-1]):
-            maximizing_player=not(maximizing_player)
-            game.apply_move(move,maximizing_player)
-        
-        legal_moves = game.valid_moves() #["W","E","SE","SW","NE","NW"]
-        if len(legal_moves)==0 or (depth==maxdepth):
-            if (depth==maxdepth):
-              self.reached_maxdepth = True  
-            return [self.cat_i,self.cat_j], (game.size**2 - depth) * game.utility(legal_moves,maximizing_player)
-        v=float("-inf")
-        vtemp=v
-        best_move=game.target(game.cat_i,game.cat_j,legal_moves[0])
-        for s in legal_moves:
-            s_pos=game.target(game.cat_i,game.cat_j,s)
-            
-            vtemp=max(v,self.min_Value(game,s_pos,maximizing_player,depth+1,maxdepth))
-            
-            if self.terminated:
-                return [-1,-1],0
-            if v<vtemp:
-                v=vtemp
-                best_move=s_pos    
-  
-        return best_move,v
-
-    def min_Value(self, upper_game, move, maximizing_player, depth, maxdepth):
-        if self.time_left()<5:
-            self.terminated=True
-            return 0
-        game=copy.deepcopy(upper_game)
-        maximizing_player=not(maximizing_player)
-        game.apply_move(move,maximizing_player)
-
-        #legal_moves = game.valid_moves()  # cat just moved, so he hasn't lost.
-                  # Besides, legal moves are free tiles for the cat's opponent.
-        
-        if (depth==maxdepth) or\
-           (game.cat_i==0 or game.cat_i==self.size-1 or game.cat_j==0 or game.cat_j==self.size-1):
-            if (depth==maxdepth):
-                self.reached_maxdepth = True 
-            return (game.size**2 - depth) * game.utility([2,3,4],maximizing_player)
-            
-        v=float("inf")
-        
-        #for s in legal_moves:
-        for i in range(game.size):      # workaround to avoid book-keeping of valid block moves
-            for j in range(game.size):  #
-                if game.tiles[i][j]!=0: #
-                    continue            #
-                s = [i,j]
-
-                placeholder,temp = self.max_Value(game,s,maximizing_player,depth+1,maxdepth)
-
-                v = min(v,temp)
-                if self.terminated:
-                    return 0
-        return v
-
-    def minimax(self, max_depth=float("inf"), maximizing_player=True):
-        best_move, best_val = self.max_Value(self,[-1,-1],maximizing_player,0,max_depth)
-        return best_move, best_val
 
     def time_left(self):
         return  (self.deadline - time.time()) * 1000
@@ -303,101 +186,88 @@ class Game(object):
         return
 
 
-
-    def ab_max_Value(self, upper_game, move, alpha, beta, maximizing_player, depth, maxdepth):
-        if self.time_left()<5:
-            self.terminated=True
-            return [-1,-1],0
-        game=copy.deepcopy(upper_game)
-        if(move!=[-1,-1]):
-            maximizing_player=not(maximizing_player)
-            game.apply_move(move,maximizing_player)
-
-        legal_moves = game.valid_moves() #["W","E","SE","SW","NE","NW"]
-        if len(legal_moves)==0 or (depth==maxdepth):
-            if (depth==maxdepth):
-                self.reached_maxdepth = True 
-            return [self.cat_i,self.cat_j], (game.size**2 - depth) * game.utility(legal_moves,maximizing_player)
-        v=float("-inf")
-        vtemp=v
-        best_move=game.target(game.cat_i,game.cat_j,legal_moves[0])
-        for s in legal_moves:
-            s_pos=game.target(game.cat_i,game.cat_j,s)
-
-            vtemp=max(v,self.ab_min_Value(game,s_pos,alpha,beta,maximizing_player,depth+1,maxdepth))
-            
-            if self.terminated:
-                return [-1,-1],0
-            if v<vtemp:
-                v=vtemp
-                best_move=s_pos
-            if v>=beta:
-                return best_move,v
-            alpha=max(alpha,v) 
-        return best_move,v
-
-    def ab_min_Value(self, upper_game, move, alpha, beta, maximizing_player, depth, maxdepth):
-        if self.time_left()<5:
-            self.terminated=True
-            return 0
-        game=copy.deepcopy(upper_game)
-        maximizing_player=not(maximizing_player)
-        game.apply_move(move,maximizing_player)
-
-        #legal_moves = game.valid_moves()  # Cat just moved, so he hasn't lost.
-                  # Besides, legal moves are free tiles for the cat's opponent.
-        
-        if (depth==maxdepth) or\
-           (game.cat_i==0 or game.cat_i==self.size-1 or game.cat_j==0 or game.cat_j==self.size-1):
-            if (depth==maxdepth):
-                self.reached_maxdepth = True 
-            return (game.size**2 - depth) * game.utility([2,3,4],maximizing_player)
-
-        v=float("inf")   
-             
-        #for s in legal_moves:
-        for i in range(game.size):      # workaround to avoid book-keeping of valid block moves
-            for j in range(game.size):  #
-                if game.tiles[i][j]!=0: #
-                    continue            #
-                s = [i,j]
-                
-                placeholder,temp=self.ab_max_Value(game,s,alpha,beta,maximizing_player,depth+1,maxdepth)
-                
-                v = min(v,temp)
-                if self.terminated:
-                    return 0
-
-                if v<=alpha:
-                    return v
-                beta=min(beta,v)
-        return v
-
-
-    def alphabeta(self, max_depth=float("inf"), alpha=float("-inf"), beta=float("inf"), maximizing_player=True):
-        best_move, best_val = self.ab_max_Value(self,[-1,-1],alpha,beta,maximizing_player,0,max_depth)
-        return best_move, best_val
-
-
-    def get_states(self):
-        states = []
-        states.append(self)
-        for i in range(self.size):
-            for j in range(self.size):
-                if self.tiles[i][j] == 0:
-                    other_game = copy.deepcopy(self)
-                    other_game.apply_move([i, j], maximizing_player=False)
-                    states.append(other_game)
-
-        return states
-
     def tile_squasher(self):
+        """
+        Takes tiles arrays from Game object and flattens the tiles out and converts it into string.
+        """
         squashed = []
         for tile in self.tiles:
             squashed.extend(tile)
         return str(squashed)
 
-    def mdp(self):
+    def get_states(self, states, depth=3, curr_depth=0,num_states=5):
+        """
+        Recursively adds to given list of Game objects of all the possible states for the given starting state of the
+        game. More precisely, it computes all the moves the cat can make and also takes into account all moves the
+        player can make (blocking tiles).
+        """
+        states.append(self)
+
+        if depth == 0:
+            for i in range(self.size):
+                for j in range(self.size):
+                    if self.tiles[i][j] == 0:
+                        other_game = copy.deepcopy(self)
+                        other_game.apply_move([i, j], maximizing_player=False)
+                        states.append(other_game)
+            return
+
+        if curr_depth >= depth:
+            return
+
+        actions = self.valid_moves()
+        for action in actions:
+            move = self.target(self.cat_i, self.cat_j, action)
+            other_game = copy.deepcopy(self)
+            other_game.apply_move(move, maximizing_player=False)
+            all_states = []
+            rewards = np.array([])
+            for i in range(self.size):
+                for j in range(self.size):
+                    if other_game.tiles[i][j] == 0:
+                        move_game = copy.deepcopy(other_game)
+                        move_game.apply_move([i, j], maximizing_player=True)
+                        rewards = np.append(rewards, move_game.utility())
+                        all_states.append(move_game)
+            if len(all_states) > num_states and num_states != -1:
+                for idx in rewards.argsort()[:num_states]:
+                    all_states[idx].get_states(states, depth, curr_depth+1, num_states)
+            else:
+                for state in all_states:
+                    state.get_states(states, depth, curr_depth+1, num_states)
+
+        return
+
+    def get_action_states(self, move, num_states):
+        """
+        Returns a list of Game objects of all possible states from a given move. More precisely it computes the cat move
+        and all the possible moves the player can do (blocking tiles).
+        """
+        states = []
+        all_states = []
+        rewards = np.array([])
+        other_game = copy.deepcopy(self)
+        other_game.apply_move(move, maximizing_player=False)
+        for i in range(self.size):
+            for j in range(self.size):
+                if other_game.tiles[i][j] == 0:
+                    move_game = copy.deepcopy(other_game)
+                    move_game.apply_move([i, j], maximizing_player=True)
+                    rewards = np.append(rewards, move_game.utility())
+                    all_states.append(move_game)
+
+        if len(all_states) > num_states and num_states != -1:
+            for idx in rewards.argsort()[:num_states]:
+                states.append(all_states[idx])
+        else:
+            for state in all_states:
+                states.append(state)
+        return states
+
+    def mdp(self, max_depth, num_states):
+        """
+        Carries out value iteration algorithm.
+        """
         max_change = float("inf")
         count = 0
         epsilon = 0.001  # Epsilon for convergence
@@ -409,44 +279,79 @@ class Game(object):
 
         U_ = {}  # Dict for storing all our U values
         pi = {}  # Dict for storing best actions
-        states = self.get_states()  # Getting all possible states (list of Game objects)
+        states = []
+        self.get_states(states, depth=max_depth, num_states=num_states)  # Getting all possible states (list of Game objects)
         legal_moves = self.valid_moves()
         if len(legal_moves) == 0:
-            return [self.cat_i, self.cat_j], -100
+            return self.cat_i, self.cat_j
         for s in states:
             U_[s.tile_squasher()] = 0  # Initializing all U values as zero
 
         # Value iteration algorithm
-        while max_change > checker and count < 1000:
-            U = U_.copy()
-            max_change = 0
-            for s in states:
-                action = {}
-                actions = s.valid_moves()  # ["W","E","SE","SW","NE","NW"]
-                for a in actions:
-                    move = s.target(s.cat_i, s.cat_j, a)
-                    other_game = copy.deepcopy(s)
-                    other_game.apply_move(move, maximizing_player=False)
-                    x = U_[other_game.tile_squasher()]
-                    other_moves = other_game.valid_moves()
-                    action[a] = other_game.utility(other_moves) + (gamma * x)
+        if max_depth == 0:
+            while max_change > checker and count < 1000:
+                U = U_.copy()
+                max_change = 0
+                for s in states:
+                    action = {}
+                    actions = s.valid_moves()  # ["W","E","SE","SW","NE","NW"]
+                    for a in actions:
+                        move = s.target(s.cat_i, s.cat_j, a)
+                        other_game = copy.deepcopy(s)
+                        other_game.apply_move(move, maximizing_player=False)
+                        x = U_[other_game.tile_squasher()]
+                        action[a] = other_game.utility() + (gamma * x)
 
-                if len(actions) != 0:
-                    pi[s.tile_squasher()] = max(action, key=action.get)
-                    U_[s.tile_squasher()] = action[pi[s.tile_squasher()]]
-                else:
-                    pi[s.tile_squasher()] = None
-                    U_[s.tile_squasher()] = -100
-                if abs(U[s.tile_squasher()] - U_[s.tile_squasher()]) > max_change:
-                    max_change = abs(U[s.tile_squasher()] - U_[s.tile_squasher()])
+                    if len(actions) != 0:
+                        pi[s.tile_squasher()] = max(action, key=action.get)
+                        U_[s.tile_squasher()] = action[pi[s.tile_squasher()]]
+                    else:
+                        pi[s.tile_squasher()] = None
+                        U_[s.tile_squasher()] = -100
+                    if abs(U[s.tile_squasher()] - U_[s.tile_squasher()]) > max_change:
+                        max_change = abs(U[s.tile_squasher()] - U_[s.tile_squasher()])
 
-            count += 1
+                count += 1
+        else:
+            while max_change > checker and count < 1000:
+                U = U_.copy()
+                max_change = 0
+                for s in states:
+                    action = {}
+                    actions = s.valid_moves()  # ["W","E","SE","SW","NE","NW"]
+                    for a in actions:
+                        move = s.target(s.cat_i, s.cat_j, a)
+                        next_game = s.get_action_states(move, num_states)
+                        all_rewards = []
+                        for game in next_game:
+                            if game.tile_squasher() in U_:
+                                all_rewards.append(game.utility() + gamma * U_[game.tile_squasher()])
+                            else:
+                                all_rewards.append(game.utility())
+                        all_rewards = np.array(all_rewards)
+
+                        # We are assuming that there is equal probability that player blocks tile for all tiles
+                        probability_function = 1/len(next_game)
+                        action[a] = (probability_function * all_rewards).sum()
+
+                    if len(actions) != 0:
+                        pi[s.tile_squasher()] = max(action, key=action.get)
+                        U_[s.tile_squasher()] = action[pi[s.tile_squasher()]]
+                    else:
+                        pi[s.tile_squasher()] = None
+                        U_[s.tile_squasher()] = -1000
+                    if abs(U[s.tile_squasher()] - U_[s.tile_squasher()]) > max_change:
+                        max_change = abs(U[s.tile_squasher()] - U_[s.tile_squasher()])
+
+                count += 1
+                if count == 1000:
+                    print('Max iter reached.')
 
         action = pi[self.tile_squasher()]
         best_move = self.target(self.cat_i,self.cat_j, action)
         best_next = copy.deepcopy(self)
         best_next.apply_move(best_move, maximizing_player=False)
-        return best_move, U_[best_next.tile_squasher()]
+        return best_move
 
 
 
@@ -457,7 +362,7 @@ class CatEvalFn():
         cat_moves=game.valid_moves()
         return len(cat_moves)*2 if maximizing_player_turn else len(cat_moves)-1
 
-    """Your own Evaluation function."""
+
     def score_challenge(self, game, maximizing_player_turn=True):
         return self.score_proximity(game)/2 + self.score_moves(game) if maximizing_player_turn else -1
 
