@@ -201,13 +201,10 @@ class GameWidget(QtWidgets.QWidget):
             self.repaint()
 
             randcat = True if self.mainWidget.RCcheckbox.isChecked() else False
-            ab = False
-            DLS = False
-            max_depth = 5
-            ID = True if self.mainWidget.IDcheckbox.isChecked() else False
-            alotted_time = float(self.mainWidget.timeText.text())
-
-            newI, newJ = self.game.CustomCat(randcat,ab,DLS,max_depth,ID,alotted_time)
+            max_depth = int(self.mainWidget.depthText.text())
+            MDP = True if self.mainWidget.MDPcheckbox.isChecked() else False
+            num_states = int(self.mainWidget.numText.text())
+            newI, newJ = self.game.CustomCat(randcat, MDP, max_depth, num_states)
             
             print ("New cat coordinates:",newI,newJ)
             newHex = ij_to_hex(newI,newJ)
@@ -350,7 +347,6 @@ class MyWidget(QWidget):
         
         height = 30
 
-
         self.dimLabel = QLabel("The Cat Trap Game\nis an NxN HexGrid\n\nEnter an odd number for N:")
         self.dimLabel.setFixedSize(200,2.5*height)
 
@@ -358,36 +354,25 @@ class MyWidget(QWidget):
         self.dimText.setFixedSize(100,height)
         self.dimText.textEdited.connect(self.updateDimText)
 
-        self.timeLabel = QLabel("Deadline in seconds:")
-        self.timeLabel.setFixedSize(200,height)
-
-        self.timeText = QLineEdit("5")
-        self.timeText.setFixedSize(100,height)
-
         self.RCcheckbox = QCheckBox("Random Cat")
         self.RCcheckbox.stateChanged.connect(self.updateRCcheckbox)
         self.RCcheckbox.setFixedWidth(200)
-        
-        #self.ABcheckbox = QCheckBox("Alpha-Beta Pruning")
-        #self.ABcheckbox.setChecked(True)
-        #self.ABcheckbox.setFixedWidth(200)
-        
 
-        #self.DLScheckbox = QCheckBox("Limited Depth:", self)
-        #self.DLScheckbox.stateChanged.connect(self.updateDLScheckbox)
-        #self.DLScheckbox.setFixedWidth(200)
-
-        #self.depthText = QLineEdit("4")
-        #self.depthText.setDisabled(True)
-        #self.depthText.setFixedSize(100,height)
-        
-
-        self.IDcheckbox = QCheckBox("MDP Cat")
-        self.IDcheckbox.stateChanged.connect(self.updateIDcheckbox)
-        self.IDcheckbox.setChecked(True)
+        self.MDPcheckbox = QCheckBox("MDP Cat")
+        self.MDPcheckbox.stateChanged.connect(self.updateMDPcheckbox)
+        self.MDPcheckbox.setChecked(True)
         self.RCcheckbox.setFixedWidth(200)
-        
-        
+        self.depthLabel = QLabel("Depth:")
+        self.depthLabel.setFixedSize(200, height)
+        self.depthText = QLineEdit("0")
+        self.depthText.setDisabled(False)
+        self.depthText.setFixedSize(100,height)
+        self.numLabel = QLabel("Num States:")
+        self.numLabel.setFixedSize(200, height)
+        self.numText = QLineEdit("1")
+        self.numText.setDisabled(False)
+        self.numText.setFixedSize(100, height)
+
         self.spaceLabel1 = QLabel(" ")
         self.spaceLabel1.setFixedSize(100,height/3)
         self.spaceLabel2 = QLabel(" ")
@@ -421,8 +406,6 @@ class MyWidget(QWidget):
         self.rightLayout.addWidget(self.start_button)
         self.rightLayout.addWidget(self.dimLabel)
         self.rightLayout.addWidget(self.dimText)
-        self.rightLayout.addWidget(self.timeLabel)
-        self.rightLayout.addWidget(self.timeText)
         self.rightLayout.addWidget(self.spaceLabel1)        
         self.rightLayout.addWidget(QHLine())
         self.rightLayout.addWidget(self.spaceLabel1)
@@ -430,16 +413,13 @@ class MyWidget(QWidget):
         self.rightLayout.addWidget(self.spaceLabel1)
         self.rightLayout.addWidget(QHLine())
         self.rightLayout.addWidget(self.spaceLabel1)
-        #self.rightLayout.addWidget(self.ABcheckbox)
-        #self.rightLayout.addWidget(self.spaceLabel1)
-        #self.rightLayout.addWidget(QHLine())
-        #self.rightLayout.addWidget(self.spaceLabel1)
-        #self.rightLayout.addWidget(self.DLScheckbox)
-        #self.rightLayout.addWidget(self.depthText)
-        #self.rightLayout.addWidget(self.spaceLabel1)
-        #self.rightLayout.addWidget(QHLine())
-        #self.rightLayout.addWidget(self.spaceLabel1)
-        self.rightLayout.addWidget(self.IDcheckbox)   
+
+        self.rightLayout.addWidget(self.MDPcheckbox)
+        self.rightLayout.addWidget(self.depthLabel)
+        self.rightLayout.addWidget(self.depthText)
+        self.rightLayout.addWidget(self.numLabel)
+        self.rightLayout.addWidget(self.numText)
+        self.rightLayout.addWidget(self.spaceLabel1)
         self.rightLayout.addWidget(self.spaceLabel1)  
         self.rightLayout.addWidget(QHLine())
         self.rightLayout.addWidget(self.spaceLabel1)
@@ -463,29 +443,25 @@ class MyWidget(QWidget):
 
     def updateRCcheckbox(self, state):
         if state == Qt.Checked:
-            #self.DLScheckbox.setChecked(False)
-            #self.DLScheckbox.setDisabled(True)
-            self.IDcheckbox.setChecked(False)
-            self.IDcheckbox.setDisabled(True)
-            #self.ABcheckbox.setChecked(False)
-            #self.ABcheckbox.setDisabled(True)
+            self.MDPcheckbox.setChecked(False)
+            self.MDPcheckbox.setDisabled(True)
+            self.depthText.setDisabled(True)
+            self.depthLabel.setDisabled(True)
+            self.numLabel.setDisabled(True)
+            self.numText.setDisabled(True)
         else:
-            #self.DLScheckbox.setChecked(True)
-            #self.DLScheckbox.setDisabled(False)
-            self.IDcheckbox.setDisabled(False)
-            #self.ABcheckbox.setDisabled(False)
-
-
-    # def updateDLScheckbox(self, state):
-    #     if state == Qt.Checked:
-    #         self.depthText.setDisabled(False)
-    #         self.IDcheckbox.setChecked(False)
-    #     else:
-    #         self.depthText.setDisabled(True)
+            self.MDPcheckbox.setChecked(True)
+            self.MDPcheckbox.setDisabled(False)
+            self.depthText.setDisabled(False)
+            self.depthLabel.setDisabled(False)
+            self.numLabel.setDisabled(False)
+            self.numText.setDisabled(False)
             
-    def updateIDcheckbox(self, state):
+    def updateMDPcheckbox(self, state):
         if state == Qt.Checked:
            pass
+        else:
+            self.RCcheckbox.setChecked(True)
 
     def updateEditCheckbox(self, state):
         if state == Qt.Checked:
