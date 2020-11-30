@@ -1,15 +1,3 @@
-"""
-This file contains the implementation of the GUI for the Cat Trap game,
-by Eduardo Corpeño.
-
-The code uses the hexutil library, by Stephan Houben, 
-available at https://github.com/stephanh42/hexutil
-and was built over the example source provided with the library. 
-
-The GUI was written in PyQt5.
-"""
-
-
 import sys
 
 from PyQt5 import QtCore, QtGui, QtWidgets
