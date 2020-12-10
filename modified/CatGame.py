@@ -3,7 +3,7 @@ import random
 import copy
 import time
 import numpy as np
-
+from ps_reward_4 import CatEvalFn
 
 def hex_to_ij(hex):
     return hex.y, hex.x//2
@@ -150,8 +150,8 @@ class Game(object):
         """
         # Absorbing states
         moves = self.valid_moves()
-        if self.cat_i == 0 or self.cat_i == self.size-1 or self.cat_j == 0 or self.cat_j == self.size-1:
-            return float(1000)
+        if self.cat_i == 0 or self.cat_i == self.size or self.cat_j == 0 or self.cat_j == self.size:
+            return float(500000)
 
         if len(moves) == 0:
             return float(-2500)
@@ -270,7 +270,10 @@ class Game(object):
         """
         max_change = float("inf")
         count = 0
-        epsilon = 0.001  # Epsilon for convergence
+        if max_depth == 0:
+            epsilon = 0.1  # Epsilon for convergence
+        else:
+            epsilon = 0.1  # Epsilon for convergence
         gamma = 0.85  # Discount factor
         if gamma != 0:
             checker = epsilon * (1 - gamma) / gamma
@@ -352,43 +355,6 @@ class Game(object):
         best_next = copy.deepcopy(self)
         best_next.apply_move(best_move, maximizing_player=False)
         return best_move
-
-
-
-class CatEvalFn():
-    """Evaluation function that outputs a score equal to 
-    the number of valid moves for the cat."""
-    def score_moves(self, game, maximizing_player_turn=True):
-        cat_moves=game.valid_moves()
-        return len(cat_moves)*2 if maximizing_player_turn else len(cat_moves)-1
-
-
-    def score_challenge(self, game, maximizing_player_turn=True):
-        return self.score_proximity(game)/2 + self.score_moves(game) if maximizing_player_turn else -1
-
-
-    """Evaluation function that outputs a
-    score sensitive to how close the cat is to a border."""
-    def score_proximity(self, game, maximizing_player_turn=True):
-       
-        distances=[100,100]
-        cat_moves=game.valid_moves()
-        #cat_moves=["W","E","SE","SW","NE","NW"]
-        for move in cat_moves:
-            dist = 0
-            i,j = game.cat_i,game.cat_j
-            while True:
-                dist = dist + 1
-                i,j = game.target(i,j,move)
-                if (i<0 or i>=game.size or j<0 or j>=game.size):
-                    break
-                if game.tiles[i][j] != 0:
-                    dist = dist*5
-                    break
-            distances.append(dist)
-
-        distances.sort() 
-        return game.size*2-(distances[0] if maximizing_player_turn else distances[1])
 
 
 

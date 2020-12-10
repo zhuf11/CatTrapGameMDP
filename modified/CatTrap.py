@@ -404,6 +404,8 @@ class MyWidget(QWidget):
                 
         self.rightLayout.addWidget(self.spaceLabel1)
         self.rightLayout.addWidget(self.start_button)
+        self.rightLayout.addWidget(self.spaceLabel1)
+        self.rightLayout.addWidget(self.spaceLabel1)
         self.rightLayout.addWidget(self.dimLabel)
         self.rightLayout.addWidget(self.dimText)
         self.rightLayout.addWidget(self.spaceLabel1)        
